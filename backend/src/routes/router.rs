@@ -11,5 +11,6 @@ pub async fn create_router(db: Arc<Database>) -> Router {
     Router::new()
         .route("/", get(|| async {"Trail Router"}))
         .route("/api/auth/register", post(register))
+        .route("/api/auth/login", post(login))
         .with_state(db)
 } 
