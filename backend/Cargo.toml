@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.4"
+bcrypt = "0.17.0"
 bson = "2.15.0"
 dotenvy = "0.15.7"
 mongodb = "3.2.4"

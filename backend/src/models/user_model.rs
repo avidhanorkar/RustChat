@@ -1,10 +1,10 @@
 use bson::oid::ObjectId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{clone::Clone, fmt::Debug};
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct User {
-    #[serde(rename = "#id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "#id")]
     pub id: ObjectId,
     pub name: String,
     pub email: String,
