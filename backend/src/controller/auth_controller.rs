@@ -36,6 +36,7 @@ pub struct LoginRequest {
     pub password: String,
 }
 
+#[derive(Serialize)]
 pub struct LoginResponse {
     msg: String,
     id: ObjectId,
@@ -111,7 +112,6 @@ pub async fn register(
     }
 }
 
-#[axum::debug_handler]
 pub async fn login(
     State(db): State<Arc<Database>>,
     Json(payload): Json<LoginRequest>,
