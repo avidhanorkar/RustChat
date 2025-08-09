@@ -145,7 +145,8 @@ pub async fn delete_user(
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid ID format".to_string()))?;
 
     match collection.find_one_and_delete(doc! {"_id": obj_id}).await {
-        Ok(Some(_)) => return Ok("The User is deleted Successfully".to_string()),
+        Ok(Some(user_found)) => return Ok(
+            format!("The User with user id: {}, is deleted successfully", user_found.id)),
         Ok(None) => {
             println!("There are no users with this user id");
             return Err((StatusCode::NOT_FOUND, "User Not Found".to_string()));

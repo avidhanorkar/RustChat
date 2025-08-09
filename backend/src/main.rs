@@ -12,6 +12,7 @@ mod routes;
 mod utils;
 mod models;
 mod controller;
+mod middleware;
 
 // crates
 use routes::router::create_router;

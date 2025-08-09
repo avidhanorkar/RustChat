@@ -1,6 +1,7 @@
 use axum::{
     body::Body, extract::FromRequestParts, http::{Request, StatusCode}, middleware::Next, response::Response, Json
 };
+use bson::oid::ObjectId;
 use serde::{Serialize, Deserialize};
 use serde_json::json;
 use jsonwebtoken::{decode, DecodingKey, Validation};
@@ -8,8 +9,7 @@ use std::env;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Claims {
-    pub user_id: String,
-    pub username: String,
+    pub user_id: ObjectId,
     pub exp: usize,
     pub iat: usize,
 }
@@ -20,7 +20,7 @@ pub async fn auth_middleware (
 ) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
 
     let headers = request.headers();
-    let auth_headers = headers.get("AUTHORIZATION").and_then(|header| header.to_str().ok());
+    let auth_headers:Option<&str> = headers.get("AUTHORIZATION").and_then(|header| header.to_str().ok());
 
     let token = match auth_headers {
         Some(token) => {

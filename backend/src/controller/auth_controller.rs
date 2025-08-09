@@ -142,12 +142,11 @@ pub async fn login(
                     iat: now.timestamp() as usize,
                 };
 
+                let secret = env::var("JWT_SECRET").expect("JWT Secret is not set!");
                 match encode(
                     &Header::default(),
                     &claims,
-                    &EncodingKey::from_secret(
-                        env::var("secret").expect("JWT Secret is not set!").as_ref(),
-                    ),
+                    &EncodingKey::from_secret(secret.as_ref()),
                 ) {
                     Ok(token) => {
                         return Ok(Json(LoginResponse {
