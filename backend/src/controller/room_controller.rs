@@ -18,7 +18,6 @@ use crate::models::user_model::User;
 #[derive(Deserialize)]
 pub struct RoomRequest {
     name: String,
-    participants: Vec<ObjectId>,
 }
 
 #[derive(Serialize)]
@@ -251,9 +250,8 @@ pub async fn get_all_rooms(
 pub async fn leave_room(
     State(db): State<Arc<Database>>,
     Path(id): Path<String>,
-    claims: Claims
-) -> Result<String, (StatusCode, String)>  {
-
+    claims: Claims,
+) -> Result<String, (StatusCode, String)> {
     let collection: Collection<Room> = db.collection("room");
 
     let room_obj_id = ObjectId::parse_str(&id)
@@ -263,14 +261,19 @@ pub async fn leave_room(
     let room = collection
         .find_one(doc! {"_id": &room_obj_id})
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()))?
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            )
+        })?
         .ok_or((StatusCode::NOT_FOUND, "Invalid Room Id".to_string()))?;
 
     // Step 2: Check ownership
     if room.owner == claims.user_id {
         return Err((
             StatusCode::BAD_REQUEST,
-            "You are the owner of the room, you can't leave".to_string()
+            "You are the owner of the room, you can't leave".to_string(),
         ));
     }
 
@@ -278,7 +281,7 @@ pub async fn leave_room(
     if !room.participants.contains(&claims.user_id) {
         return Err((
             StatusCode::NOT_FOUND,
-            "The user was never a part of the room".to_string()
+            "The user was never a part of the room".to_string(),
         ));
     }
 
@@ -286,10 +289,58 @@ pub async fn leave_room(
     collection
         .update_one(
             doc! {"_id": &room_obj_id},
-            doc! { "$pull": { "participants": &claims.user_id } }
+            doc! { "$pull": { "participants": &claims.user_id } },
         )
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            )
+        })?;
 
     Ok("The user has successfully left the room".to_string())
 }
+
+pub async fn delete_room(
+    State(db): State<Arc<Database>>,
+    claims: Claims,
+    Path(id): Path<String>,
+) -> Result<String, (StatusCode, String)> {
+    let collections: Collection<Room> = db.collection("room");
+
+    let room_obj_id =
+        ObjectId::parse_str(id).map_err(|_| (StatusCode::NOT_FOUND, "Invalid Id".to_string()))?;
+
+    let room = match collections.find_one(doc! {"_id": &room_obj_id}).await {
+        Ok(Some(room)) => room,
+        Ok(None) => return Err((StatusCode::NOT_FOUND, "Room Not Found".to_string())),
+        Err(e) => {
+            println!("Some Error Occured: {e}");
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal Server Error".to_string(),
+            ));
+        }
+    };
+
+    if room.owner != claims.user_id {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "You have no right to delete the room".to_string(),
+        ));
+    }
+
+    collections
+        .delete_one(doc! {"_id": room_obj_id})
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error".to_string(),
+            )
+        })?;
+
+    return Ok("The room is deleted successfully by its owner".to_string());
+}
+

@@ -25,6 +25,7 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .route("/api/room/{id}", get(get_room))
         .route("/api/room/join/{room_id}", put(join_room))
         .route("/api/room/leave/{id}", put(leave_room))
+        .route("/api/room/delete/{id}", delete(delete_room))
         .layer(middleware::from_fn(auth_middleware)); // applied only here
 
     public_routes.merge(protected_routes).with_state(db)
