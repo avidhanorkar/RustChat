@@ -1,11 +1,12 @@
 use bson::oid::ObjectId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{clone::Clone, fmt::Debug};
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Room {
-    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "_id")]
     pub id: ObjectId,
     pub name: String,
+    pub owner: ObjectId,
     pub participants: Vec<ObjectId>,
 }
