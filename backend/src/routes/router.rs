@@ -29,11 +29,15 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .route("/api/room/join/{room_id}", put(join_room))
         .route("/api/room/leave/{id}", put(leave_room))
         .route("/api/room/delete/{id}", delete(delete_room))
+        .route("/api/message/delete/{id}", delete(delete_message_in_room))
+        .route("/api/message/deleteDM/{id}", delete(delete_message_in_dm))
         .layer(from_fn(auth_middleware));
 
 
     let message_routes = Router::new()
         .route("/api/message/send/{id}", post(send_message))
+        .route("/api/messages/getRoomMessages/{id}", get(get_messages_by_room_id))
+        .route("/api/messages/getDM/{id}", get(get_messages_in_dm))
         .layer(from_fn_with_state(db.clone(), in_room))
         .layer(from_fn(auth_middleware));
 
