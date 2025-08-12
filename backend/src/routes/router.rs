@@ -1,9 +1,9 @@
 use axum::{
-    Router, middleware::{from_fn, from_fn_with_state},
-    routing::{delete, get, post, put},
+    http::{HeaderValue, Method}, middleware::{from_fn, from_fn_with_state}, routing::{delete, get, post, put}, Router
 };
 use mongodb::Database;
 use std::sync::Arc;
+use tower_http::cors::{CorsLayer, Any};
 
 use crate::{
     controller::{
@@ -41,9 +41,16 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .layer(from_fn_with_state(db.clone(), in_room))
         .layer(from_fn(auth_middleware));
 
+    let origin = HeaderValue::from_str("http://localhost:3000").expect("Invalid header Value");
+
+    let cors = CorsLayer::new()
+        .allow_origin(origin)
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+        .allow_headers(Any);
 
     public_routes
         .merge(protected_routes)
         .merge(message_routes)
         .with_state(db)
+        .layer(cors)
 }
