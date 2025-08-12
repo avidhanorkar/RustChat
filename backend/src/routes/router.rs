@@ -31,6 +31,8 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .route("/api/room/delete/{id}", delete(delete_room))
         .route("/api/message/delete/{id}", delete(delete_message_in_room))
         .route("/api/message/deleteDM/{id}", delete(delete_message_in_dm))
+        .route("/api/message/{current_user_id}", get(get_users_with_recent_chats))
+        .route("/api/messages/{user1_id}/{user2_id}", get(get_messages_between_users))
         .layer(from_fn(auth_middleware));
 
 

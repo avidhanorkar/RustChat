@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
 };
 use bson::{doc, oid::ObjectId};
+use futures_util::TryStreamExt;
 use futures_util::stream::StreamExt;
 use mongodb::{Collection, Database, bson::DateTime};
 use serde::{Deserialize, Serialize};
@@ -39,6 +40,15 @@ pub struct GetDMMessages {
     sender_id: ObjectId,
     receiver_id: Option<ObjectId>,
     content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RecentChat {
+    pub chat_id: ObjectId,
+    pub chat_type: String, // "user" or "room"
+    pub name: String,
+    pub last_message: String,
+    pub timestamp: DateTime,
 }
 
 pub async fn send_message(
@@ -327,10 +337,7 @@ pub async fn delete_message_in_dm(
             }
         }
         Ok(None) => {
-            return Err((
-                StatusCode::NOT_FOUND,
-                "Message Not Found".to_string(),
-            ));
+            return Err((StatusCode::NOT_FOUND, "Message Not Found".to_string()));
         }
         Err(e) => {
             println!("Some Error Occured: {e}");
@@ -340,4 +347,160 @@ pub async fn delete_message_in_dm(
             ));
         }
     }
+}
+
+pub async fn get_users_with_recent_chats(
+    State(db): State<Arc<Database>>,
+    Path(current_user_id): Path<String>,
+) -> Result<Json<Vec<RecentChat>>, (StatusCode, String)> {
+    let messages: Collection<mongodb::bson::Document> = db.collection("message");
+
+    let parsed_user_id = ObjectId::parse_str(&current_user_id)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid user ID".to_string()))?;
+
+    let pipeline = vec![
+        // Get messages where the current user is either sender, receiver, or in a room
+        doc! {
+            "$match": {
+                "$or": [
+                    { "sender_id": &parsed_user_id },
+                    { "receiver_id": &parsed_user_id },
+                    { "room_id": { "$ne": null } }
+                ]
+            }
+        },
+        // Sort newest first
+        doc! { "$sort": { "timestamp": -1 } },
+        // Group: direct chats by "other user", rooms by "room_id"
+        doc! {
+            "$group": {
+                "_id": {
+                    "$cond": [
+                        { "$ifNull": ["$room_id", false] }, // if room_id exists
+                        { "type": "room", "id": "$room_id" },
+                        { "type": "user",
+                          "id": {
+                              "$cond": [
+                                  { "$eq": ["$sender_id", &parsed_user_id] },
+                                  "$receiver_id",
+                                  "$sender_id"
+                              ]
+                          }
+                        }
+                    ]
+                },
+                "last_message": { "$first": "$content" },
+                "timestamp": { "$first": "$timestamp" }
+            }
+        },
+        // Lookup the name: if type is "user" → from "user", else from "room"
+        doc! {
+            "$lookup": {
+                "from": "user",
+                "localField": "_id.id",
+                "foreignField": "_id",
+                "as": "user_info"
+            }
+        },
+        doc! {
+            "$lookup": {
+                "from": "room",
+                "localField": "_id.id",
+                "foreignField": "_id",
+                "as": "room_info"
+            }
+        },
+        // Decide name field based on type
+        doc! {
+            "$addFields": {
+                "chat_type": "$_id.type",
+                "chat_id": "$_id.id",
+                "name": {
+                    "$cond": [
+                        { "$eq": ["$_id.type", "user"] },
+                        { "$arrayElemAt": ["$user_info.name", 0] },
+                        { "$arrayElemAt": ["$room_info.name", 0] }
+                    ]
+                }
+            }
+        },
+        // Cleanup
+        doc! {
+            "$project": {
+                "_id": 0,
+                "chat_id": 1,
+                "chat_type": 1,
+                "name": 1,
+                "last_message": 1,
+                "timestamp": 1
+            }
+        },
+        // Sort by latest again
+        doc! { "$sort": { "timestamp": -1 } },
+    ];
+
+    let mut cursor = messages.aggregate(pipeline).await.map_err(|e| {
+        eprintln!("Error fetching recent chats: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch recent chats".to_string(),
+        )
+    })?;
+
+    let mut results = Vec::new();
+    while let Some(doc) = cursor.next().await {
+        if let Ok(d) = doc {
+            if let Ok(chat) = mongodb::bson::from_document::<RecentChat>(d) {
+                results.push(chat);
+            }
+        }
+    }
+
+    Ok(Json(results))
+}
+
+pub async fn get_messages_between_users(
+    State(db): State<Arc<Database>>,
+    Path((user1_id, user2_id)): Path<(String, String)>,
+) -> Result<Json<Vec<Message>>, StatusCode> {
+    // Convert both path params to ObjectId
+    let user1_oid = ObjectId::parse_str(&user1_id)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let user2_oid = ObjectId::parse_str(&user2_id)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let collection = db.collection::<Message>("messages");
+
+    // MongoDB aggregation pipeline
+    let pipeline = vec![
+        doc! {
+            "$match": {
+                "$or": [
+                    { "sender_id": &user1_oid, "receiver_id": &user2_oid },
+                    { "sender_id": &user2_oid, "receiver_id": &user1_oid }
+                ]
+            }
+        },
+        doc! {
+            "$sort": { "timestamp": 1 }
+        }
+    ];
+
+    let mut cursor = collection
+        .aggregate(pipeline)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut messages: Vec<Message> = Vec::new();
+    while let Some(doc) = cursor
+        .try_next()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    {
+        if let Ok(message) = bson::from_document::<Message>(doc) {
+            messages.push(message);
+        }
+    }
+
+    Ok(Json(messages))
 }
