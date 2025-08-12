@@ -46,7 +46,7 @@ pub struct LoginResponse {
 pub async fn register(
     State(db): State<Arc<Database>>,
     Json(payload): Json<RegisterRequest>,
-) -> Result<Json<AuthResponse>, (StatusCode, String)> {
+) -> Result<Json<LoginResponse>, (StatusCode, String)> {
     let collection: Collection<User> = db.collection("user");
 
     if payload.name.is_empty() || payload.email.is_empty() || payload.password.is_empty() {
@@ -56,58 +56,53 @@ pub async fn register(
         ));
     }
 
-    let filter = doc! {
-        "email": &payload.email,
-    };
+    let filter = doc! { "email": &payload.email };
 
     match collection.find_one(filter).await {
         Ok(Some(_)) => {
             return Err((StatusCode::BAD_REQUEST, "Email already exists".to_string()));
         }
         Ok(None) => {
-            let hashed: String = match hash(&payload.password, DEFAULT_COST) {
-                Ok(hashed) => hashed,
-                Err(e) => {
-                    println!("Some error occured in hashing the password: {}", e);
-                    return Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Failed to hash password".to_string(),
-                    ));
-                }
-            };
+            let hashed = hash(&payload.password, DEFAULT_COST)
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to hash password".to_string()))?;
 
+            let user_id = ObjectId::new();
             let user = User {
-                id: ObjectId::new(),
+                id: user_id.clone(),
                 name: payload.name,
                 email: payload.email,
                 password: hashed,
             };
 
-            match collection.insert_one(&user).await {
-                Ok(user_created) => {
-                    return Ok(Json(AuthResponse {
-                        msg: "User created Successfully".to_string(),
-                        user_id: user_created.inserted_id.as_object_id().ok_or((
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Failed to get user id".to_string(),
-                        ))?,
-                    }));
-                }
-                Err(e) => {
-                    println!("Some error occured in inserting the user: {}", e);
-                    return Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Failed to insert user".to_string(),
-                    ));
-                }
-            }
+            collection.insert_one(&user).await
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to insert user".to_string()))?;
+
+            // Create token just like in login
+            const TOKEN_EXPIRY: i64 = 24;
+            let now = Utc::now();
+            let exp = now + chrono::Duration::hours(TOKEN_EXPIRY);
+
+            let claims = JWTClaims {
+                user_id: user_id.clone(),
+                exp: exp.timestamp() as usize,
+                iat: now.timestamp() as usize,
+            };
+
+            let secret = env::var("JWT_SECRET").expect("JWT Secret is not set!");
+            let token = encode(
+                &Header::default(),
+                &claims,
+                &EncodingKey::from_secret(secret.as_ref()),
+            ).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Failed to encode token".to_string()))?;
+
+            return Ok(Json(LoginResponse {
+                msg: "User registered & logged in successfully".to_string(),
+                id: user_id,
+                token,
+            }));
         }
-        Err(e) => {
-            println!("Some error occured in finding the user: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to find user".to_string(),
-            ));
+        Err(_) => {
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, "Failed to find user".to_string()));
         }
     }
 }

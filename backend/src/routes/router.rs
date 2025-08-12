@@ -41,7 +41,7 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .layer(from_fn_with_state(db.clone(), in_room))
         .layer(from_fn(auth_middleware));
 
-    let origin = HeaderValue::from_str("http://localhost:3000").expect("Invalid header Value");
+    let origin = HeaderValue::from_str("http://localhost:5173").expect("Invalid header Value");
 
     let cors = CorsLayer::new()
         .allow_origin(origin)
