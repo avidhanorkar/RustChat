@@ -42,6 +42,7 @@ const Login = () => {
 
                 let token = data.token;
                 sessionStorage.setItem("token", token);
+                window.location.href = "/chat";
             }
         } catch (error: any) {
             console.log(error);
