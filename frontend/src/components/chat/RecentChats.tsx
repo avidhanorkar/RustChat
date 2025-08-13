@@ -10,7 +10,7 @@ type Chat = {
 };
 
 type RecentChatsProps = {
-    onSelectChat: (chatId: string) => void;
+    onSelectChat: (chatId: string, chattype: 'user' | 'room') => void;
 };
 
 const RecentChats = ({ onSelectChat }: RecentChatsProps) => {
@@ -62,8 +62,10 @@ const RecentChats = ({ onSelectChat }: RecentChatsProps) => {
                             typeof chat.chat_id === "object" && chat.chat_id !== null && "$oid" in chat.chat_id
                                 ? (chat.chat_id as { $oid: string }).$oid
                                 : (chat.chat_id as string);
-                        onSelectChat(chatIdStr);
+                        onSelectChat(chatIdStr, chat.chat_type);
+                        console.log(chat);
                     }}
+                    
                 >
                     <div className="w-full">
                         <p className='text-white text-lg text-start'>{chat.name}</p>

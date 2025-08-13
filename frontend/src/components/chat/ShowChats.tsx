@@ -9,9 +9,11 @@ type ChatMessage = {
 
 type ShowChatsProps = {
     chatId: string | null;
+    chattype: 'user' | 'room';
 };
 
-const ShowChats = ({ chatId }: ShowChatsProps) => {
+const ShowChats = ({ chatId, chattype }: ShowChatsProps) => {
+    const [content, setContent] = useState<string>("");
     const { user } = useAuth();
     const userId =
         typeof user?.user_id === "object" && user?.user_id !== null && "$oid" in user.user_id
@@ -28,17 +30,29 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
                 console.error("No token found in sessionStorage");
                 return;
             }
-
-            const response = await fetch(
-                `http://localhost:8000/api/messages/${userId}/${chatId}`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                    },
-                }
-            );
+            let response;
+            if (chattype === 'user') {
+                response = await fetch(
+                    `http://localhost:8000/api/messages/${userId}/${chatId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`,
+                        },
+                    }
+                );
+            } else {
+                response = await fetch(
+                    `http://localhost:8000/api/message/room/${chatId}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            "Authorization": `Bearer ${token}`,
+                        }
+                    }
+                );
+            }
 
             if (!response.ok) {
                 console.error("Failed to fetch chats", response.status);
@@ -52,6 +66,29 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
             console.error("Error fetching chats:", error);
         }
     };
+
+    const sendMessage = async () => {
+        try {
+            const response = await fetch(`http://localhost:8000/api/message/send/${chatId}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${sessionStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                    content,
+                }),
+            }
+            );
+            if (!response.ok) {
+                console.error("Failed to send message", response.status);
+                return;
+            }
+            console.log("Message sent successfully");
+        } catch (error) {
+            console.error("Error sending message:", error);
+        }
+    }
 
     useEffect(() => {
         getChats();
@@ -107,8 +144,11 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
                     className="bg-gray-700 text-white px-4 py-2 rounded-lg flex-1"
                     type="text"
                     placeholder="Type your message here..."
+                    name="content"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
                 />
-                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">Send</button>
+                <button onClick={sendMessage} className="bg-blue-500 text-white px-4 py-2 rounded-lg">Send</button>
             </div>
         </div>
     );

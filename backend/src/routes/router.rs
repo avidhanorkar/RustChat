@@ -33,6 +33,7 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .route("/api/message/deleteDM/{id}", delete(delete_message_in_dm))
         .route("/api/message/{current_user_id}", get(get_users_with_recent_chats))
         .route("/api/messages/{user1_id}/{user2_id}", get(get_messages_between_users))
+        .route("/api/message/room/{room_id}", get(get_messages_in_room))
         .layer(from_fn(auth_middleware));
 
 
@@ -40,7 +41,6 @@ pub async fn create_router(db: Arc<Database>) -> Router {
         .route("/api/message/send/{id}", post(send_message))
         .route("/api/messages/getRoomMessages/{id}", get(get_messages_by_room_id))
         .route("/api/messages/getDM/{id}", get(get_messages_in_dm))
-        .layer(from_fn_with_state(db.clone(), in_room))
         .layer(from_fn(auth_middleware));
 
     let origin = HeaderValue::from_str("http://localhost:5173").expect("Invalid header Value");

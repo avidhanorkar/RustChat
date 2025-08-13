@@ -7,11 +7,14 @@ import ShowChats from '@/components/chat/ShowChats';
 const Chat = () => {
     const { user } = useAuth();
 
-    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+const [selectedChatType, setSelectedChatType] = useState<'user' | 'room'>('user');
 
-    const handleChatSelect = (chatId: string) => {
-        setSelectedChatId(chatId);
-    };
+const handleChatSelect = (chatId: string, chatType: 'user' | 'room') => {
+    setSelectedChatId(chatId);
+    setSelectedChatType(chatType);
+};
+
 
     // Type definition for the user data from backend
     type UserDetails = {
@@ -85,7 +88,7 @@ const Chat = () => {
                     <RecentChats onSelectChat={handleChatSelect} />
                 </div>
                 <div className='w-3/5 h-[80vh]'>
-                    <ShowChats chatId={selectedChatId} />
+                    <ShowChats chatId={selectedChatId} chattype={selectedChatType} />
                 </div>
             </div>
         </div>

@@ -504,3 +504,44 @@ pub async fn get_messages_between_users(
 
     Ok(Json(messages))
 }
+
+pub async fn get_messages_in_room(
+    State(db): State<Arc<Database>>,
+    Path(room_id): Path<String>,
+) -> Result<Json<Vec<Message>>, StatusCode> {
+    // Convert room_id string to ObjectId
+    let room_oid = ObjectId::parse_str(&room_id)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    let collection: Collection<Message> = db.collection("message");
+
+    // MongoDB aggregation pipeline
+    let pipeline = vec![
+        doc! {
+            "$match": {
+                "room_id": room_oid.clone()
+            }
+        },
+        doc! {
+            "$sort": { "timestamp": 1 }
+        }
+    ];
+
+    let mut cursor = collection
+        .aggregate(pipeline)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut messages: Vec<Message> = Vec::new();
+    while let Some(doc) = cursor
+        .try_next()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    {
+        if let Ok(message) = bson::from_document::<Message>(doc) {
+            messages.push(message);
+        }
+    }
+
+    Ok(Json(messages))
+}
