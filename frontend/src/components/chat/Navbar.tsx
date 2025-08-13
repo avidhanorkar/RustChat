@@ -5,7 +5,7 @@ type navprops = {
 
 const Navbar = ({username}: navprops) => {
     return (
-        <div className='flex flex-row items-center justify-around gap-2 bg-black h-16 w-full text-white border-b border-gray-500'>
+        <div className='flex flex-row items-center justify-around gap-2 bg-black h-[10vh] w-full text-white border-b border-gray-500'>
             <p className='text-white text-2xl font-semibold'>RustChat</p>
             <div className='flex flex-row items-center gap-2'>
                 <p className=''>{username}</p>

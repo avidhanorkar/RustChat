@@ -469,22 +469,22 @@ pub async fn get_messages_between_users(
     let user2_oid = ObjectId::parse_str(&user2_id)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-    let collection = db.collection::<Message>("messages");
+    let collection = db.collection::<Message>("message");
 
     // MongoDB aggregation pipeline
     let pipeline = vec![
-        doc! {
-            "$match": {
-                "$or": [
-                    { "sender_id": &user1_oid, "receiver_id": &user2_oid },
-                    { "sender_id": &user2_oid, "receiver_id": &user1_oid }
-                ]
-            }
-        },
-        doc! {
-            "$sort": { "timestamp": 1 }
+    doc! {
+        "$match": {
+            "$or": [
+                { "$and": [ { "sender_id": user1_oid.clone() }, { "receiver_id": user2_oid.clone() } ] },
+                { "$and": [ { "sender_id": user2_oid.clone() }, { "receiver_id": user1_oid.clone() } ] }
+            ]
         }
-    ];
+    },
+    doc! {
+        "$sort": { "timestamp": 1 }
+    }
+];
 
     let mut cursor = collection
         .aggregate(pipeline)

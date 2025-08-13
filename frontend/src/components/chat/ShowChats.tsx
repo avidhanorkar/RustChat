@@ -13,6 +13,10 @@ type ShowChatsProps = {
 
 const ShowChats = ({ chatId }: ShowChatsProps) => {
     const { user } = useAuth();
+    const userId =
+        typeof user?.user_id === "object" && user?.user_id !== null && "$oid" in user.user_id
+            ? (user.user_id as { $oid: string }).$oid
+            : (user?.user_id as string | undefined);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
 
     const getChats = async () => {
@@ -26,7 +30,7 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
             }
 
             const response = await fetch(
-                `http://localhost:8000/api/messages/${chatId}`,
+                `http://localhost:8000/api/messages/${userId}/${chatId}`,
                 {
                     method: "GET",
                     headers: {
@@ -42,6 +46,7 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
             }
 
             const data = await response.json();
+            console.log("Fetched chats:", data);
             setMessages(data);
         } catch (error) {
             console.error("Error fetching chats:", error);
@@ -53,35 +58,61 @@ const ShowChats = ({ chatId }: ShowChatsProps) => {
     }, [chatId]);
 
     return (
-        <div className="p-4 text-white">
-            {!chatId && <p>Select a chat to view messages</p>}
-            {chatId && messages.length === 0 && <p>No messages yet.</p>}
-            {messages.map((msg, idx) => (
-                <div
-                    key={idx}
-                    className={`p-2 my-1 rounded ${
-                        msg.sender_id === user?.user_id ? "bg-blue-600" : "bg-gray-700"
-                    }`}
-                >
-                    <p>{msg.content}</p>
-                    <span className="text-xs text-gray-400">
-                        {(() => {
-                            if (msg.timestamp?.$date && typeof msg.timestamp.$date === "string") {
-                                return new Date(msg.timestamp.$date).toLocaleString();
-                            }
-                            if (msg.timestamp?.$date?.$numberLong) {
-                                return new Date(parseInt(msg.timestamp.$date.$numberLong)).toLocaleString();
-                            }
-                            if (typeof msg.timestamp === "string") {
-                                return new Date(msg.timestamp).toLocaleString();
-                            }
-                            return "";
-                        })()}
-                    </span>
-                </div>
-            ))}
+        <div className=" text-white w-[60vw] h-[90vh] flex flex-col justify-between">
+
+            {/* Messages container */}
+            <div className="p-4 flex-1 overflow-y-auto">
+                {!chatId && <p>Select a chat to view messages</p>}
+                {chatId && messages.length === 0 && <p>No messages yet.</p>}
+
+                {messages.map((msg, idx) => {
+                    const isOwnMessage =
+                        typeof msg.sender_id === "object" && msg.sender_id !== null && "$oid" in msg.sender_id
+                            ? (msg.sender_id as { $oid: string }).$oid === userId
+                            : msg.sender_id === userId;
+
+                    return (
+                        <div
+                            key={idx}
+                            className={`flex ${isOwnMessage ? "justify-end" : "justify-start"} my-1`}
+                        >
+                            <div
+                                className={`p-2 rounded ${isOwnMessage ? "bg-blue-600 text-white" : "bg-gray-700 text-white"
+                                    } max-w-[70%]`}
+                            >
+                                <p>{msg.content}</p>
+                                <span className="text-xs text-gray-400 block text-right">
+                                    {(() => {
+                                        if (msg.timestamp?.$date && typeof msg.timestamp.$date === "string") {
+                                            return new Date(msg.timestamp.$date).toLocaleString();
+                                        }
+                                        if (msg.timestamp?.$date?.$numberLong) {
+                                            return new Date(parseInt(msg.timestamp.$date.$numberLong)).toLocaleString();
+                                        }
+                                        if (typeof msg.timestamp === "string") {
+                                            return new Date(msg.timestamp).toLocaleString();
+                                        }
+                                        return "";
+                                    })()}
+                                </span>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Input box */}
+            <div className="h-[10vh] flex flex-row justify-center px-2 items-center border-t-2 border-gray-500 gap-2">
+                <input
+                    className="bg-gray-700 text-white px-4 py-2 rounded-lg flex-1"
+                    type="text"
+                    placeholder="Type your message here..."
+                />
+                <button className="bg-blue-500 text-white px-4 py-2 rounded-lg">Send</button>
+            </div>
         </div>
     );
+
 };
 
 export default ShowChats;

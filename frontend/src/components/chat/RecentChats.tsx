@@ -52,7 +52,7 @@ const RecentChats = ({ onSelectChat }: RecentChatsProps) => {
     }, [])
 
     return (
-        <div className="w-full flex flex-col gap-2 pt-5 items-center">
+        <div className="w-full flex flex-col gap-2 pt-5 items-center ">
             {recentChats.map((chat, index) => (
                 <div
                     key={index}

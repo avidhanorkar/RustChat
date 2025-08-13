@@ -75,16 +75,16 @@ const Chat = () => {
     }
 
     return (
-        <div>
+        <div className=''>
             <Navbar username={userDet.name || ''} />
-            <div className='flex flex-row items-center justify-center w-screen h-screen'>
-                <div className='w-2/5 h-screen border-r-2 border-gray-500'>
+            <div className='flex flex-row items-center justify-center w-screen bg-black h-[80vh]'>
+                <div className='w-2/5 h-[80vh] border-r-2 border-gray-500'>
                     <div className='flex flex-col items-center justify-center h-[8vh]'>
                         <p className='text-white font-semibold text-xl'>Recent Chats</p>
                     </div>
                     <RecentChats onSelectChat={handleChatSelect} />
                 </div>
-                <div className='w-3/5 h-screen'>
+                <div className='w-3/5 h-[80vh]'>
                     <ShowChats chatId={selectedChatId} />
                 </div>
             </div>
